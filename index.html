@@ -40,6 +40,16 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   display:flex;align-items:center;gap:6px;white-space:nowrap;
 }
 .dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+#header-copy-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:20px;padding:6px 12px;font-size:13px;font-weight:700;
+  display:flex;align-items:center;gap:7px;white-space:nowrap;
+  color:var(--accent2);cursor:pointer;font-family:monospace;
+  transition:background .15s,border-color .15s;
+}
+#header-copy-btn:hover{background:var(--border);border-color:var(--accent)}
+#header-copy-btn svg{flex-shrink:0;color:var(--muted)}
+#header-copy-btn:hover svg{color:var(--accent2)}
 
 /* ── LAYOUT ── */
 #app{flex:1;display:flex;overflow:hidden}
@@ -309,6 +319,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
     <div id="room-name">Salon de discussion</div>
     <div id="room-sub">Connexion directe entre pairs</div>
   </div>
+  <button id="header-copy-btn" onclick="copyMyId()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    <span id="header-copy-code">——</span>
+  </button>
   <div id="members-badge"><div class="dot"></div><span id="online-count">1</span> en ligne</div>
 </div>
 
@@ -368,20 +382,31 @@ function colorFor(id){ let h=0; for(let c of id) h=(h*31+c.charCodeAt(0))%COLORS
 function initials(n){ return n.slice(0,2).toUpperCase(); }
 function nowStr(){ const d=new Date(); return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'); }
 
+// Short, easy-to-type room codes (e.g. "RX7K9P")
+function genShortCode(len=6){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I to avoid confusion
+  let code = '';
+  for(let i=0;i<len;i++) code += chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
+
 // ─── PeerJS ───────────────────────────────────────────────────────────────────
-function initPeer(name){
+function initPeer(name, preferredCode){
   S.myName = name;
-  S.peer = new Peer(undefined, { debug: 0 });
+  const code = preferredCode || genShortCode();
+  S.peer = new Peer('chatp2p-' + code, { debug: 0 });
+  S.myShortCode = code;
 
   S.peer.on('open', id => {
     S.myId = id;
     S.myColor = colorFor(id);
-    document.getElementById('my-peer-id').textContent = id;
+    document.getElementById('my-peer-id').textContent = S.myShortCode;
     document.getElementById('my-code-box').style.display = 'flex';
     document.getElementById('my-avatar').textContent = initials(name);
     document.getElementById('my-avatar').style.background = S.myColor;
     document.getElementById('my-name-display').textContent = name;
-    document.getElementById('my-id-display').textContent = id;
+    document.getElementById('my-id-display').textContent = S.myShortCode;
+    document.getElementById('header-copy-code').textContent = S.myShortCode;
     setStatus('Ton code est prêt ! Partage-le à tes potes.');
   });
 
@@ -390,6 +415,11 @@ function initPeer(name){
   });
 
   S.peer.on('error', e => {
+    if(e.type === 'unavailable-id' && !preferredCode){
+      // Collision: try again with a new code
+      initPeer(name);
+      return;
+    }
     setStatus('Erreur : ' + e.message, true);
   });
 }
@@ -461,14 +491,15 @@ function createRoom(){
 
 function joinRoom(){
   const name = document.getElementById('name-input').value.trim();
-  const code = document.getElementById('join-input').value.trim();
+  const code = document.getElementById('join-input').value.trim().toUpperCase();
   if(!name){ shake('name-input'); return; }
   if(!code){ shake('join-input'); return; }
   setStatus('Connexion en cours…');
   initPeer(name);
   setTimeout(() => {
     if(!S.myId){ setStatus('Erreur de connexion au réseau. Réessaie.', true); return; }
-    const conn = S.peer.connect(code.trim(), { reliable:true });
+    const fullId = 'chatp2p-' + code;
+    const conn = S.peer.connect(fullId, { reliable:true });
     setupConn(conn);
     conn.on('open', () => openApp());
     conn.on('error', () => setStatus('Impossible de rejoindre. Code incorrect ?', true));
@@ -491,11 +522,12 @@ function openApp(){
 // ─── Connect from chat ────────────────────────────────────────────────────────
 function connectToPeer(){
   const input = document.getElementById('connect-input');
-  const code = input.value.trim();
+  const code = input.value.trim().toUpperCase();
   if(!code) return;
-  if(S.conns[code]){ toast('Déjà connecté à ce pair.'); return; }
-  if(code === S.myId){ toast('C\'est ton propre code !'); return; }
-  const conn = S.peer.connect(code, { reliable:true });
+  const fullId = 'chatp2p-' + code;
+  if(S.conns[fullId]){ toast('Déjà connecté à ce pair.'); return; }
+  if(code === S.myShortCode){ toast('C\'est ton propre code !'); return; }
+  const conn = S.peer.connect(fullId, { reliable:true });
   setupConn(conn);
   conn.on('open', () => { toast('✅ Connecté !'); input.value=''; });
   conn.on('error', () => toast('❌ Impossible de se connecter.'));
@@ -618,7 +650,7 @@ function setStatus(msg, err=false){
   el.style.color = err ? 'var(--red)' : 'var(--muted)';
 }
 function copyMyId(){
-  navigator.clipboard.writeText(S.myId).then(() => toast('✅ Code copié !'));
+  navigator.clipboard.writeText(S.myShortCode).then(() => toast('✅ Code copié !'));
 }
 function shake(id){
   const el = document.getElementById(id);
