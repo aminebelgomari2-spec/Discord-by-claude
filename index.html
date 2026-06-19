@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChatP2P</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f0f13;
+  --surface:#18181f;
+  --surface2:#1e1e28;
+  --border:#2a2a38;
+  --accent:#7c6af7;
+  --accent2:#a78bfa;
+  --green:#22c55e;
+  --red:#ef4444;
+  --yellow:#f59e0b;
+  --text:#e2e8f0;
+  --muted:#64748b;
+  --radius:12px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── HEADER ── */
+#header{
+  display:flex;align-items:center;gap:12px;padding:14px 20px;
+  background:var(--surface);border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+#logo{font-size:20px;font-weight:800;letter-spacing:-.5px;color:var(--accent2)}
+#logo span{color:var(--text)}
+#room-info{flex:1;min-width:0}
+#room-name{font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#room-sub{font-size:12px;color:var(--muted);margin-top:1px}
+#members-badge{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:20px;padding:4px 12px;font-size:13px;font-weight:600;
+  display:flex;align-items:center;gap:6px;white-space:nowrap;
+}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+
+/* ── LAYOUT ── */
+#app{flex:1;display:flex;overflow:hidden}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  width:260px;min-width:260px;background:var(--surface);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;
+  overflow:hidden;
+}
+#sidebar-header{
+  padding:16px;border-bottom:1px solid var(--border);
+  font-size:11px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--muted);
+}
+#peers-list{flex:1;overflow-y:auto;padding:8px}
+.peer-item{
+  display:flex;align-items:center;gap:10px;padding:8px 10px;
+  border-radius:8px;cursor:pointer;transition:background .15s;
+}
+.peer-item:hover{background:var(--surface2)}
+.peer-avatar{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#fff;flex-shrink:0;
+  position:relative;
+}
+.peer-status{
+  position:absolute;bottom:0;right:0;width:10px;height:10px;
+  border-radius:50%;border:2px solid var(--surface);
+}
+.peer-info{min-width:0;flex:1}
+.peer-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.peer-state{font-size:11px;color:var(--muted);margin-top:1px}
+#my-info{
+  padding:12px 16px;border-top:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;background:var(--bg);
+}
+#my-avatar{
+  width:34px;height:34px;border-radius:50%;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:#fff;flex-shrink:0;
+}
+#my-details{min-width:0;flex:1}
+#my-name-display{font-size:13px;font-weight:600}
+#my-id-display{font-size:10px;color:var(--muted);font-family:monospace;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── CHAT MAIN ── */
+#chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
+
+/* ── MESSAGES ── */
+#messages-wrap{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:2px}
+#messages-wrap::-webkit-scrollbar{width:6px}
+#messages-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+.day-sep{
+  display:flex;align-items:center;gap:12px;
+  margin:16px 0 8px;
+}
+.day-sep::before,.day-sep::after{content:'';flex:1;height:1px;background:var(--border)}
+.day-sep span{font-size:11px;color:var(--muted);font-weight:600;white-space:nowrap}
+
+.msg-group{display:flex;gap:12px;padding:4px 0;position:relative}
+.msg-group:hover .msg-ts-hover{opacity:1}
+.msg-avatar-col{width:36px;flex-shrink:0;padding-top:2px}
+.msg-avatar{
+  width:36px;height:36px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#fff;cursor:pointer;
+}
+.msg-body{flex:1;min-width:0}
+.msg-header{display:flex;align-items:baseline;gap:8px;margin-bottom:3px}
+.msg-author{font-size:15px;font-weight:700;cursor:pointer}
+.msg-author:hover{text-decoration:underline}
+.msg-time{font-size:11px;color:var(--muted)}
+.msg-text{
+  font-size:15px;line-height:1.5;color:var(--text);word-break:break-word;
+}
+.msg-text a{color:var(--accent2)}
+.msg-text code{
+  background:var(--surface2);border-radius:4px;
+  padding:1px 5px;font-family:monospace;font-size:13px;
+}
+
+/* continued messages */
+.msg-cont{
+  display:flex;gap:12px;padding:1px 0;
+  position:relative;
+}
+.msg-cont:hover .msg-ts-hover{opacity:1}
+.msg-ts-hover{
+  width:36px;flex-shrink:0;display:flex;align-items:center;
+  justify-content:flex-end;font-size:10px;color:var(--muted);
+  opacity:0;transition:opacity .1s;padding-right:4px;
+}
+.msg-cont-body{flex:1;min-width:0;font-size:15px;line-height:1.5;color:var(--text);word-break:break-word}
+
+/* system messages */
+.msg-system{
+  text-align:center;font-size:12px;color:var(--muted);
+  padding:6px 0;display:flex;align-items:center;gap:8px;
+}
+.msg-system::before,.msg-system::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* own messages */
+.msg-own .msg-author{color:var(--accent2)}
+
+/* ── TYPING ── */
+#typing-bar{
+  height:22px;padding:0 20px;font-size:12px;color:var(--muted);
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+.typing-dot-wrap{display:flex;gap:3px}
+.td{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:td 1.2s infinite}
+.td:nth-child(2){animation-delay:.2s}.td:nth-child(3){animation-delay:.4s}
+@keyframes td{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+
+/* ── INPUT ── */
+#input-wrap{
+  padding:12px 20px 16px;flex-shrink:0;
+  background:var(--bg);border-top:1px solid var(--border);
+}
+#input-row{
+  display:flex;align-items:flex-end;gap:8px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:8px 12px;
+  transition:border-color .15s;
+}
+#input-row:focus-within{border-color:var(--accent)}
+#msg-input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--text);font-size:15px;resize:none;
+  min-height:24px;max-height:160px;line-height:1.5;
+  font-family:inherit;
+}
+#msg-input::placeholder{color:var(--muted)}
+#send-btn{
+  width:36px;height:36px;border-radius:8px;border:none;
+  background:var(--accent);color:#fff;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:background .15s,transform .1s;
+}
+#send-btn:hover{background:var(--accent2)}
+#send-btn:active{transform:scale(.93)}
+#send-btn:disabled{background:var(--border);cursor:not-allowed}
+
+/* ── CONNECT MODAL ── */
+#overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);
+  backdrop-filter:blur(8px);z-index:100;
+  display:flex;align-items:center;justify-content:center;
+}
+#modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:32px;width:420px;max-width:95vw;
+}
+#modal h1{font-size:26px;font-weight:800;color:var(--accent2);margin-bottom:6px}
+#modal p{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.5}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.field input{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:10px 14px;color:var(--text);
+  font-size:15px;outline:none;transition:border-color .15s;font-family:inherit;
+}
+.field input:focus{border-color:var(--accent)}
+.sep{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:12px}
+.sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--border)}
+.btn{
+  width:100%;padding:12px;border-radius:10px;border:none;
+  font-size:15px;font-weight:700;cursor:pointer;transition:background .15s,transform .1s;
+}
+.btn:active{transform:scale(.98)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:var(--surface2);color:var(--text);margin-top:10px;border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--border)}
+#my-code-box{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:12px 14px;font-family:monospace;font-size:14px;
+  color:var(--accent2);display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;gap:8px;
+}
+#copy-btn{
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+  color:var(--text);font-size:12px;padding:4px 10px;cursor:pointer;
+  white-space:nowrap;transition:background .1s;
+}
+#copy-btn:hover{background:var(--border)}
+#status-msg{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;min-height:20px}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);
+  background:#1e1e28;border:1px solid var(--border);border-radius:10px;
+  padding:10px 20px;font-size:14px;color:var(--text);
+  transition:transform .3s ease;z-index:200;pointer-events:none;white-space:nowrap;
+}
+#toast.show{transform:translateX(-50%) translateY(0)}
+
+/* ── CONNECT BAR ── */
+#connect-bar{
+  display:flex;gap:8px;align-items:center;padding:0 20px 12px;
+  flex-shrink:0;
+}
+#connect-input{
+  flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px;
+  outline:none;font-family:monospace;transition:border-color .15s;
+}
+#connect-input:focus{border-color:var(--accent)}
+#connect-input::placeholder{color:var(--muted)}
+#connect-go{
+  background:var(--accent);color:#fff;border:none;
+  border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;
+  cursor:pointer;white-space:nowrap;transition:background .15s;
+}
+#connect-go:hover{background:var(--accent2)}
+
+@media(max-width:640px){
+  #sidebar{display:none}
+  #modal{padding:24px}
+}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- MODAL -->
+<div id="overlay">
+  <div id="modal">
+    <h1>ChatP2P 🔗</h1>
+    <p>Chat direct entre amis — aucun serveur, aucune inscription. Tes messages passent directement de toi à tes potes.</p>
+
+    <div class="field">
+      <label>Ton pseudo</label>
+      <input id="name-input" placeholder="Ex: AlphaWolf" maxlength="24" autocomplete="off">
+    </div>
+
+    <div id="my-code-box" style="display:none">
+      <span id="my-peer-id">Connexion...</span>
+      <button id="copy-btn" onclick="copyMyId()">Copier</button>
+    </div>
+
+    <div class="sep">créer ou rejoindre</div>
+
+    <button class="btn btn-primary" id="create-btn" onclick="createRoom()">✨ Créer un salon</button>
+
+    <div class="sep" style="margin:16px 0 14px">rejoindre avec un code</div>
+
+    <div class="field">
+      <label>Code d'un ami</label>
+      <input id="join-input" placeholder="Colle le code de ton pote ici" autocomplete="off" style="font-family:monospace">
+    </div>
+    <button class="btn btn-secondary" onclick="joinRoom()">🚀 Rejoindre</button>
+
+    <div id="status-msg"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="header" style="display:none">
+  <div id="logo">Chat<span>P2P</span></div>
+  <div id="room-info">
+    <div id="room-name">Salon de discussion</div>
+    <div id="room-sub">Connexion directe entre pairs</div>
+  </div>
+  <div id="members-badge"><div class="dot"></div><span id="online-count">1</span> en ligne</div>
+</div>
+
+<div id="app" style="display:none">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="sidebar-header">Membres connectés</div>
+    <div id="peers-list"></div>
+    <div id="my-info">
+      <div id="my-avatar">?</div>
+      <div id="my-details">
+        <div id="my-name-display">Moi</div>
+        <div id="my-id-display">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div id="chat-main">
+    <div id="messages-wrap">
+      <div class="day-sep"><span id="today-label">Aujourd'hui</span></div>
+    </div>
+    <div id="typing-bar"></div>
+    <div id="connect-bar">
+      <input id="connect-input" placeholder="Code d'un ami à inviter…">
+      <button id="connect-go" onclick="connectToPeer()">+ Inviter</button>
+    </div>
+    <div id="input-wrap">
+      <div id="input-row">
+        <textarea id="msg-input" placeholder="Envoie un message…" rows="1"
+          onkeydown="handleKey(event)" oninput="autoResize(this);sendTyping()"></textarea>
+        <button id="send-btn" onclick="sendMessage()" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const S = {
+  peer: null,
+  myName: '',
+  myId: '',
+  conns: {},        // peerId -> DataConnection
+  peerNames: {},    // peerId -> name
+  peerColors: {},   // peerId -> color
+  typingTimers: {}, // peerId -> timeout
+  lastAuthor: null,
+  lastTime: null,
+  msgSendEnabled: false,
+};
+
+const COLORS = ['#7c6af7','#ec4899','#f59e0b','#22c55e','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#f97316'];
+function colorFor(id){ let h=0; for(let c of id) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[Math.abs(h)%COLORS.length]; }
+function initials(n){ return n.slice(0,2).toUpperCase(); }
+function nowStr(){ const d=new Date(); return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0'); }
+
+// ─── PeerJS ───────────────────────────────────────────────────────────────────
+function initPeer(name){
+  S.myName = name;
+  S.peer = new Peer(undefined, { debug: 0 });
+
+  S.peer.on('open', id => {
+    S.myId = id;
+    S.myColor = colorFor(id);
+    document.getElementById('my-peer-id').textContent = id;
+    document.getElementById('my-code-box').style.display = 'flex';
+    document.getElementById('my-avatar').textContent = initials(name);
+    document.getElementById('my-avatar').style.background = S.myColor;
+    document.getElementById('my-name-display').textContent = name;
+    document.getElementById('my-id-display').textContent = id;
+    setStatus('Ton code est prêt ! Partage-le à tes potes.');
+  });
+
+  S.peer.on('connection', conn => {
+    setupConn(conn);
+  });
+
+  S.peer.on('error', e => {
+    setStatus('Erreur : ' + e.message, true);
+  });
+}
+
+function setupConn(conn){
+  conn.on('open', () => {
+    S.conns[conn.peer] = conn;
+    // Send my info
+    conn.send({ type: 'hello', name: S.myName, id: S.myId });
+    // Announce existing peers
+    Object.keys(S.peerNames).forEach(pid => {
+      conn.send({ type: 'peer-info', id: pid, name: S.peerNames[pid] });
+    });
+  });
+
+  conn.on('data', data => handleData(conn.peer, data));
+
+  conn.on('close', () => {
+    const name = S.peerNames[conn.peer] || conn.peer.slice(0,6);
+    delete S.conns[conn.peer];
+    delete S.peerNames[conn.peer];
+    delete S.peerColors[conn.peer];
+    renderPeers();
+    updateCount();
+    addSystemMsg(`${name} a quitté le salon`);
+  });
+
+  conn.on('error', e => console.warn('conn error', e));
+}
+
+function handleData(peerId, data){
+  if(data.type === 'hello'){
+    S.peerNames[peerId] = data.name;
+    S.peerColors[peerId] = colorFor(peerId);
+    renderPeers();
+    updateCount();
+    addSystemMsg(`${data.name} a rejoint le salon 🎉`);
+    // Announce to all other peers
+    Object.keys(S.conns).forEach(pid => {
+      if(pid !== peerId) S.conns[pid].send({ type:'peer-info', id:peerId, name:data.name });
+    });
+  } else if(data.type === 'peer-info'){
+    // Connect to unknown peer
+    if(!S.conns[data.id] && data.id !== S.myId){
+      S.peerNames[data.id] = data.name;
+      S.peerColors[data.id] = colorFor(data.id);
+      const c = S.peer.connect(data.id, { reliable:true });
+      setupConn(c);
+    }
+  } else if(data.type === 'msg'){
+    renderMsg({ peerId, name: S.peerNames[peerId]||'?', color: colorFor(peerId), text: data.text, time: data.time });
+    clearTypingIndicator(peerId);
+  } else if(data.type === 'typing'){
+    showTypingIndicator(S.peerNames[peerId]||'Quelqu\'un');
+    clearTimeout(S.typingTimers[peerId]);
+    S.typingTimers[peerId] = setTimeout(() => clearTypingIndicator(peerId), 3000);
+  }
+}
+
+// ─── Room creation / joining ──────────────────────────────────────────────────
+function createRoom(){
+  const name = document.getElementById('name-input').value.trim();
+  if(!name){ shake('name-input'); return; }
+  document.getElementById('create-btn').disabled = true;
+  document.getElementById('create-btn').textContent = 'Connexion…';
+  initPeer(name);
+  setTimeout(openApp, 1800);
+}
+
+function joinRoom(){
+  const name = document.getElementById('name-input').value.trim();
+  const code = document.getElementById('join-input').value.trim();
+  if(!name){ shake('name-input'); return; }
+  if(!code){ shake('join-input'); return; }
+  setStatus('Connexion en cours…');
+  initPeer(name);
+  setTimeout(() => {
+    if(!S.myId){ setStatus('Erreur de connexion au réseau. Réessaie.', true); return; }
+    const conn = S.peer.connect(code.trim(), { reliable:true });
+    setupConn(conn);
+    conn.on('open', () => openApp());
+    conn.on('error', () => setStatus('Impossible de rejoindre. Code incorrect ?', true));
+  }, 2000);
+}
+
+function openApp(){
+  document.getElementById('overlay').style.display = 'none';
+  document.getElementById('header').style.display = 'flex';
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('msg-input').focus();
+  enableSend(true);
+  document.getElementById('today-label').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  addSystemMsg(`Tu as rejoint le salon en tant que ${S.myName}`);
+  renderPeers();
+  updateCount();
+  toast('🔗 Connecté ! Partage ton code pour inviter des amis.');
+}
+
+// ─── Connect from chat ────────────────────────────────────────────────────────
+function connectToPeer(){
+  const input = document.getElementById('connect-input');
+  const code = input.value.trim();
+  if(!code) return;
+  if(S.conns[code]){ toast('Déjà connecté à ce pair.'); return; }
+  if(code === S.myId){ toast('C\'est ton propre code !'); return; }
+  const conn = S.peer.connect(code, { reliable:true });
+  setupConn(conn);
+  conn.on('open', () => { toast('✅ Connecté !'); input.value=''; });
+  conn.on('error', () => toast('❌ Impossible de se connecter.'));
+}
+
+// ─── Messaging ────────────────────────────────────────────────────────────────
+function sendMessage(){
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if(!text) return;
+  const time = nowStr();
+  const pkg = { type:'msg', text, time };
+  Object.values(S.conns).forEach(c => { try{ c.send(pkg); }catch(e){} });
+  renderMsg({ peerId: S.myId, name: S.myName, color: S.myColor, text, time, own: true });
+  input.value=''; input.style.height='';
+}
+
+let typingThrottle = null;
+function sendTyping(){
+  if(typingThrottle) return;
+  Object.values(S.conns).forEach(c => { try{ c.send({ type:'typing' }); }catch(e){} });
+  typingThrottle = setTimeout(() => typingThrottle=null, 2000);
+}
+
+// ─── Render messages ──────────────────────────────────────────────────────────
+function renderMsg({ peerId, name, color, text, time, own }){
+  const wrap = document.getElementById('messages-wrap');
+  const isSameAuthor = S.lastAuthor === peerId && (Date.now() - S.lastTime) < 300000;
+  S.lastAuthor = peerId;
+  S.lastTime = Date.now();
+
+  const escaped = escapeHTML(text).replace(/\n/g,'<br>').replace(/(https?:\/\/[^\s<]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');
+
+  if(isSameAuthor){
+    const cont = document.createElement('div');
+    cont.className = 'msg-cont';
+    cont.innerHTML = `<div class="msg-ts-hover">${time}</div><div class="msg-cont-body">${escaped}</div>`;
+    wrap.appendChild(cont);
+  } else {
+    const group = document.createElement('div');
+    group.className = 'msg-group' + (own?' msg-own':'');
+    group.innerHTML = `
+      <div class="msg-avatar-col">
+        <div class="msg-avatar" style="background:${color}">${initials(name)}</div>
+      </div>
+      <div class="msg-body">
+        <div class="msg-header">
+          <span class="msg-author" style="color:${color}">${escapeHTML(name)}</span>
+          <span class="msg-time">${time}</span>
+        </div>
+        <div class="msg-text">${escaped}</div>
+      </div>`;
+    wrap.appendChild(group);
+  }
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function addSystemMsg(text){
+  const wrap = document.getElementById('messages-wrap');
+  const el = document.createElement('div');
+  el.className = 'msg-system';
+  el.innerHTML = `<span>${escapeHTML(text)}</span>`;
+  wrap.appendChild(el);
+  S.lastAuthor = null;
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+// ─── Typing indicator ─────────────────────────────────────────────────────────
+const typingPeers = new Set();
+function showTypingIndicator(name){
+  typingPeers.add(name);
+  renderTyping();
+}
+function clearTypingIndicator(peerId){
+  const name = S.peerNames[peerId];
+  if(name) typingPeers.delete(name);
+  renderTyping();
+}
+function renderTyping(){
+  const bar = document.getElementById('typing-bar');
+  if(!typingPeers.size){ bar.innerHTML=''; return; }
+  const names = [...typingPeers].join(', ');
+  bar.innerHTML = `<div class="typing-dot-wrap"><div class="td"></div><div class="td"></div><div class="td"></div></div><span><strong>${escapeHTML(names)}</strong> écrit…</span>`;
+}
+
+// ─── Peers sidebar ────────────────────────────────────────────────────────────
+function renderPeers(){
+  const list = document.getElementById('peers-list');
+  list.innerHTML = Object.keys(S.peerNames).map(pid => {
+    const name = S.peerNames[pid];
+    const color = colorFor(pid);
+    return `<div class="peer-item">
+      <div class="peer-avatar" style="background:${color}">
+        ${initials(name)}
+        <div class="peer-status" style="background:var(--green)"></div>
+      </div>
+      <div class="peer-info">
+        <div class="peer-name">${escapeHTML(name)}</div>
+        <div class="peer-state">En ligne</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateCount(){
+  document.getElementById('online-count').textContent = Object.keys(S.conns).length + 1;
+}
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+function escapeHTML(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function handleKey(e){
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendMessage(); }
+}
+function autoResize(ta){ ta.style.height=''; ta.style.height=Math.min(ta.scrollHeight,160)+'px'; }
+function enableSend(v){ S.msgSendEnabled=v; document.getElementById('send-btn').disabled=!v; }
+function setStatus(msg, err=false){
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.style.color = err ? 'var(--red)' : 'var(--muted)';
+}
+function copyMyId(){
+  navigator.clipboard.writeText(S.myId).then(() => toast('✅ Code copié !'));
+}
+function shake(id){
+  const el = document.getElementById(id);
+  el.style.borderColor='var(--red)';
+  el.animate([{transform:'translateX(-4px)'},{transform:'translateX(4px)'},{transform:'translateX(0)'}],{duration:200});
+  setTimeout(()=>el.style.borderColor='',1000);
+}
+let toastT;
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// Press Enter in modal inputs
+document.getElementById('name-input').addEventListener('keydown', e => { if(e.key==='Enter') createRoom(); });
+document.getElementById('join-input').addEventListener('keydown', e => { if(e.key==='Enter') joinRoom(); });
+document.getElementById('connect-input').addEventListener('keydown', e => { if(e.key==='Enter') connectToPeer(); });
+</script>
+</body>
+</html>
