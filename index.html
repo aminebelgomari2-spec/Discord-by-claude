@@ -50,6 +50,97 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 #header-copy-btn:hover{background:var(--border);border-color:var(--accent)}
 #header-copy-btn svg{flex-shrink:0;color:var(--muted)}
 #header-copy-btn:hover svg{color:var(--accent2)}
+#call-btn{
+  width:36px;height:36px;border-radius:10px;border:none;
+  background:var(--surface2);border:1px solid var(--border);color:var(--green);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:background .15s,border-color .15s;
+}
+#call-btn:hover{background:var(--border);border-color:var(--green)}
+#call-btn.in-call{background:var(--red);border-color:var(--red);color:#fff}
+#call-btn.in-call:hover{background:#dc2626}
+
+/* ── CALL OVERLAY ── */
+#call-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(10px);
+  z-index:150;display:none;align-items:center;justify-content:center;
+}
+#call-box{
+  background:var(--surface);border:1px solid var(--border);border-radius:20px;
+  padding:36px;width:340px;max-width:92vw;text-align:center;
+}
+#call-avatar{
+  width:88px;height:88px;border-radius:50%;margin:0 auto 16px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;font-weight:700;color:#fff;
+  position:relative;
+}
+#call-avatar::after{
+  content:'';position:absolute;inset:-6px;border-radius:50%;
+  border:2px solid var(--green);opacity:0;animation:pulse-ring 1.6s infinite;
+}
+@keyframes pulse-ring{0%{transform:scale(.9);opacity:.6}100%{transform:scale(1.3);opacity:0}}
+#call-name{font-size:18px;font-weight:700;margin-bottom:4px}
+#call-status{font-size:13px;color:var(--muted);margin-bottom:28px}
+#call-controls{display:flex;gap:14px;justify-content:center}
+.call-ctrl-btn{
+  width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--surface2);border:1px solid var(--border);color:var(--text);
+  transition:background .15s,transform .1s;
+}
+.call-ctrl-btn:hover{background:var(--border)}
+.call-ctrl-btn:active{transform:scale(.92)}
+.call-ctrl-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+#call-hangup{background:var(--red);border-color:var(--red);color:#fff}
+#call-hangup:hover{background:#dc2626}
+#incoming-banner{
+  position:fixed;top:16px;left:50%;transform:translateX(-50%) translateY(-100px);
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:14px 18px;display:flex;align-items:center;gap:14px;
+  box-shadow:0 12px 32px rgba(0,0,0,.5);z-index:160;
+  transition:transform .3s ease;
+}
+#incoming-banner.show{transform:translateX(-50%) translateY(0)}
+#incoming-avatar{
+  width:42px;height:42px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0;
+}
+#incoming-text{font-size:14px}
+#incoming-text strong{display:block;font-size:14px}
+#incoming-text span{font-size:12px;color:var(--muted)}
+.incoming-actions{display:flex;gap:8px;margin-left:8px}
+.incoming-btn{
+  width:38px;height:38px;border-radius:50%;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;color:#fff;
+  transition:transform .1s;
+}
+.incoming-btn:active{transform:scale(.9)}
+.incoming-accept{background:var(--green)}
+.incoming-decline{background:var(--red)}
+
+#call-picker-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+  z-index:140;display:none;align-items:center;justify-content:center;
+}
+#call-picker-box{
+  background:var(--surface);border:1px solid var(--border);border-radius:18px;
+  padding:24px;width:320px;max-width:90vw;
+}
+#call-picker-title{font-size:16px;font-weight:700;margin-bottom:14px}
+#call-picker-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto}
+.call-pick-item{
+  display:flex;align-items:center;gap:10px;padding:10px;border-radius:10px;
+  cursor:pointer;transition:background .15s;background:var(--bg);
+  border:1px solid var(--border);
+}
+.call-pick-item:hover{background:var(--surface2);border-color:var(--accent)}
+.call-pick-avatar{
+  width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.call-pick-name{font-size:14px;font-weight:600;flex:1}
+.call-pick-empty{font-size:13px;color:var(--muted);text-align:center;padding:20px 0}
 
 /* ── LAYOUT ── */
 #app{flex:1;display:flex;overflow:hidden}
@@ -280,6 +371,47 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 <!-- TOAST -->
 <div id="toast"></div>
 
+<!-- INCOMING CALL BANNER -->
+<div id="incoming-banner">
+  <div id="incoming-avatar">?</div>
+  <div id="incoming-text"><strong id="incoming-name">Quelqu'un</strong><span>Appel entrant…</span></div>
+  <div class="incoming-actions">
+    <button class="incoming-btn incoming-decline" onclick="declineCall()" title="Refuser">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 15.5c-1.6 0-3.1-.25-4.5-.72a1.3 1.3 0 0 0-1.32.3l-2 2.02a16 16 0 0 1-7.04-7.04l2.02-2c.35-.35.46-.85.3-1.32A11.4 11.4 0 0 1 8.24 2.5a1.3 1.3 0 0 0-1.3-1.3H3.2A1.3 1.3 0 0 0 1.9 2.5C1.9 13.27 10.73 22.1 21.5 22.1a1.3 1.3 0 0 0 1.3-1.3v-3.97a1.3 1.3 0 0 0-1.3-1.33z" transform="rotate(135 12 12)"/></svg>
+    </button>
+    <button class="incoming-btn incoming-accept" onclick="acceptCall()" title="Répondre">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.25 1.01l-2.2 2.2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- CALL OVERLAY -->
+<div id="call-overlay">
+  <div id="call-box">
+    <div id="call-avatar">?</div>
+    <div id="call-name">—</div>
+    <div id="call-status">Appel en cours…</div>
+    <div id="call-controls">
+      <button class="call-ctrl-btn" id="call-mute-btn" onclick="toggleCallMute()" title="Couper le micro">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm7 8a1 1 0 0 1 1 1 8 8 0 0 1-7 7.94V21h2a1 1 0 0 1 0 2H9a1 1 0 0 1 0-2h2v-1.06A8 8 0 0 1 4 12a1 1 0 0 1 2 0 6 6 0 0 0 12 0 1 1 0 0 1 1-1z"/></svg>
+      </button>
+      <button class="call-ctrl-btn" id="call-hangup" onclick="endCall()" title="Raccrocher">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M21.5 15.5c-1.6 0-3.1-.25-4.5-.72a1.3 1.3 0 0 0-1.32.3l-2 2.02a16 16 0 0 1-7.04-7.04l2.02-2c.35-.35.46-.85.3-1.32A11.4 11.4 0 0 1 8.24 2.5a1.3 1.3 0 0 0-1.3-1.3H3.2A1.3 1.3 0 0 0 1.9 2.5C1.9 13.27 10.73 22.1 21.5 22.1a1.3 1.3 0 0 0 1.3-1.3v-3.97a1.3 1.3 0 0 0-1.3-1.33z" transform="rotate(135 12 12)"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- CALL PICKER (choose who to call) -->
+<div id="call-picker-overlay">
+  <div id="call-picker-box">
+    <div id="call-picker-title">Appeler qui ?</div>
+    <div id="call-picker-list"></div>
+    <button class="btn btn-secondary" style="margin-top:14px" onclick="closeCallPicker()">Annuler</button>
+  </div>
+</div>
+<audio id="remote-audio" autoplay></audio>
+
 <!-- MODAL -->
 <div id="overlay">
   <div id="modal">
@@ -322,6 +454,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
   <button id="header-copy-btn" onclick="copyMyId()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
     <span id="header-copy-code">——</span>
+  </button>
+  <button id="call-btn" onclick="openCallPicker()" title="Appeler">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.25 1.01l-2.2 2.2z"/></svg>
   </button>
   <div id="members-badge"><div class="dot"></div><span id="online-count">1</span> en ligne</div>
 </div>
@@ -375,6 +510,13 @@ const S = {
   lastAuthor: null,
   lastTime: null,
   msgSendEnabled: false,
+  // call state
+  localStream: null,
+  currentCall: null,
+  callPeerId: null,
+  incomingCall: null,
+  callMuted: false,
+  inCall: false,
 };
 
 const COLORS = ['#7c6af7','#ec4899','#f59e0b','#22c55e','#3b82f6','#ef4444','#8b5cf6','#06b6d4','#f97316'];
@@ -412,6 +554,18 @@ function initPeer(name, preferredCode){
 
   S.peer.on('connection', conn => {
     setupConn(conn);
+  });
+
+  S.peer.on('call', call => {
+    if(S.inCall){ call.close(); return; } // busy
+    S.incomingCall = call;
+    const name = S.peerNames[call.peer] || 'Quelqu\'un';
+    const color = colorFor(call.peer);
+    document.getElementById('incoming-name').textContent = name;
+    document.getElementById('incoming-avatar').textContent = initials(name);
+    document.getElementById('incoming-avatar').style.background = color;
+    document.getElementById('incoming-banner').classList.add('show');
+    playRingtone();
   });
 
   S.peer.on('error', e => {
@@ -667,7 +821,142 @@ function toast(msg){
   toastT = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-// Press Enter in modal inputs
+// ─── Calls (audio, via PeerJS media) ──────────────────────────────────────────
+function openCallPicker(){
+  if(S.inCall){ toast('Tu es déjà en appel.'); return; }
+  const ids = Object.keys(S.peerNames);
+  const list = document.getElementById('call-picker-list');
+  if(!ids.length){
+    list.innerHTML = `<div class="call-pick-empty">Aucun ami connecté pour le moment.</div>`;
+  } else {
+    list.innerHTML = ids.map(pid => {
+      const name = S.peerNames[pid];
+      const color = colorFor(pid);
+      return `<div class="call-pick-item" onclick="startCall('${pid}')">
+        <div class="call-pick-avatar" style="background:${color}">${initials(name)}</div>
+        <div class="call-pick-name">${escapeHTML(name)}</div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="var(--green)"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.61 21 3 13.39 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.25 1.01l-2.2 2.2z"/></svg>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('call-picker-overlay').style.display = 'flex';
+}
+function closeCallPicker(){
+  document.getElementById('call-picker-overlay').style.display = 'none';
+}
+
+async function getMic(){
+  if(S.localStream) return S.localStream;
+  S.localStream = await navigator.mediaDevices.getUserMedia({ audio:true, video:false });
+  return S.localStream;
+}
+
+async function startCall(peerId){
+  closeCallPicker();
+  try{
+    const stream = await getMic();
+    const call = S.peer.call(peerId, stream);
+    S.currentCall = call;
+    S.callPeerId = peerId;
+    openCallUI(peerId, 'Appel en cours…');
+    call.on('stream', remoteStream => {
+      document.getElementById('remote-audio').srcObject = remoteStream;
+      document.getElementById('call-status').textContent = 'En appel';
+    });
+    call.on('close', () => endCall(true));
+    call.on('error', () => endCall(true));
+  }catch(e){
+    toast('🎤 Micro inaccessible. Vérifie les permissions.');
+  }
+}
+
+async function acceptCall(){
+  const call = S.incomingCall;
+  if(!call) return;
+  document.getElementById('incoming-banner').classList.remove('show');
+  stopRingtone();
+  try{
+    const stream = await getMic();
+    call.answer(stream);
+    S.currentCall = call;
+    S.callPeerId = call.peer;
+    openCallUI(call.peer, 'En appel');
+    call.on('stream', remoteStream => {
+      document.getElementById('remote-audio').srcObject = remoteStream;
+    });
+    call.on('close', () => endCall(true));
+    call.on('error', () => endCall(true));
+  }catch(e){
+    toast('🎤 Micro inaccessible. Vérifie les permissions.');
+    call.close();
+  }
+  S.incomingCall = null;
+}
+
+function declineCall(){
+  if(S.incomingCall) S.incomingCall.close();
+  S.incomingCall = null;
+  document.getElementById('incoming-banner').classList.remove('show');
+  stopRingtone();
+}
+
+function openCallUI(peerId, statusText){
+  S.inCall = true;
+  const name = S.peerNames[peerId] || 'Quelqu\'un';
+  const color = colorFor(peerId);
+  document.getElementById('call-name').textContent = name;
+  document.getElementById('call-avatar').textContent = initials(name);
+  document.getElementById('call-avatar').style.background = color;
+  document.getElementById('call-status').textContent = statusText;
+  document.getElementById('call-overlay').style.display = 'flex';
+  document.getElementById('call-btn').classList.add('in-call');
+}
+
+function endCall(silent){
+  if(S.currentCall){ try{ S.currentCall.close(); }catch(e){} }
+  if(S.localStream){ S.localStream.getTracks().forEach(t=>t.stop()); S.localStream=null; }
+  document.getElementById('remote-audio').srcObject = null;
+  document.getElementById('call-overlay').style.display = 'none';
+  document.getElementById('call-btn').classList.remove('in-call');
+  S.currentCall = null;
+  S.callPeerId = null;
+  S.inCall = false;
+  S.callMuted = false;
+  const muteBtn = document.getElementById('call-mute-btn');
+  muteBtn.classList.remove('active');
+  if(!silent) toast('📞 Appel terminé.');
+}
+
+function toggleCallMute(){
+  if(!S.localStream) return;
+  S.callMuted = !S.callMuted;
+  S.localStream.getAudioTracks().forEach(t => t.enabled = !S.callMuted);
+  document.getElementById('call-mute-btn').classList.toggle('active', S.callMuted);
+}
+
+// simple ringtone via WebAudio (no external file needed)
+let ringOsc=null, ringInterval=null;
+function playRingtone(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    function beep(){
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.4);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime+0.4);
+    }
+    beep();
+    ringInterval = setInterval(beep, 1000);
+    window._ringCtx = ctx;
+  }catch(e){}
+}
+function stopRingtone(){
+  clearInterval(ringInterval);
+  ringInterval = null;
+}
 document.getElementById('name-input').addEventListener('keydown', e => { if(e.key==='Enter') createRoom(); });
 document.getElementById('join-input').addEventListener('keydown', e => { if(e.key==='Enter') joinRoom(); });
 document.getElementById('connect-input').addEventListener('keydown', e => { if(e.key==='Enter') connectToPeer(); });
